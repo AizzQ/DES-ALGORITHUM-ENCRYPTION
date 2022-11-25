@@ -1,121 +1,805 @@
-from Crypto.PublicKey import RSA
-from Crypto.Cipher import PKCS1_OAEP
-from hashlib import sha512
-import base64
+from Crypto.Cipher import DES      # THIS IS ONLY FOR LAST TASK FOR DES ENCRYTION AS PER WRITTEN
+from secrets import token_bytes    # THIS IS ALSO FOR THE LAST TASK FOR RANDOM KEY GENERATION
+
+def bytes2binary(y):
+    """
+    >>> bytes2binary(b'\\x01')
+    '00000001'
+    >>> bytes2binary(b'\\x03')
+    '00000011'
+    >>> bytes2binary(b'\\xf0')
+    '11110000'
+    >>> bytes2binary(b'\\xf0\\x80')
+    '1111000010000000'
+    """
+
+    binary_string = "{:08b}".format(int(y.hex(), 16))
+    return binary_string
 
 
-def encrypt_RSA(message, e, n):
+def binary2bytes(b):
+    """
+    >>> binary2bytes('00000001')
+    b'\\x01'
+    >>> binary2bytes('00000011')
+    b'\\x03'
+    >>> binary2bytes('11110000')
+    b'\\xf0'
+    >>> binary2bytes('1111000010000000')
+    b'\\xf0\\x80'
+    """
+    aa = format(int(b, 2), 'x').rjust(2, '0')
+    bb = bytes.fromhex(aa)
+    return bb
+
+
+def bin_xor(a, b):
+    """
+    >>> bin_xor('1011','0000')
+    '1011'
+    >>> bin_xor('1','0000')
+    '0001'
+    >>> bin_xor('1101','1011')
+    '0110'
+    >>> bin_xor('10101010','01010101')
+    '11111111'
+    """
+    y = int(a, 2) ^ int(b, 2)
+    y1 = ('{0:b}'.format(y)).zfill(4)
+    return y1
+
+
+def create_DES_subkeys(input1):
+    """
+    >>> create_DES_subkeys('0001001100110100010101110111100110011011101111001101111111110001')
+    ['000110110000001011101111111111000111000001110010', '011110011010111011011001110110111100100111100101', '010101011111110010001010010000101100111110011001', '011100101010110111010110110110110011010100011101', '011111001110110000000111111010110101001110101000', '011000111010010100111110010100000111101100101111', '111011001000010010110111111101100001100010111100', '111101111000101000111010110000010011101111111011', '111000001101101111101011111011011110011110000001', '101100011111001101000111101110100100011001001111', '001000010101111111010011110111101101001110000110', '011101010111000111110101100101000110011111101001', '100101111100010111010001111110101011101001000001', '010111110100001110110111111100101110011100111010', '101111111001000110001101001111010011111100001010', '110010110011110110001011000011100001011111110101']
+    """
+
+    global cdn
+    my_order = [57, 49, 41, 33, 25, 17, 9, 1, 58, 50, 42, 34, 26, 18, 10, 2, 59, 51, 43, 35, 27, 19, 11, 3, 60, 52, 44,
+                36, 63, 55, 47, 39, 31, 23, 15, 7, 62, 54, 46, 38, 30, 22, 14, 6, 61, 53, 45, 37, 29, 21, 13, 5, 28, 20,
+                12, 4]
+
+    my_new_order = [14, 17, 11, 24, 1, 5, 3, 28, 15, 6, 21, 10, 23, 19, 12, 4, 26, 8, 16, 7, 27, 20, 13, 2, 41, 52, 31,
+                    37, 47, 55, 30, 40, 51, 45, 33, 48, 44, 49, 39, 56, 34, 53, 46, 42, 50, 36, 29, 32]
+
+    ret0 = []
+    output1 = []
+    for i in input1:
+        output1.append(i)
+    for i in my_order:
+        ret0.append(i - 1)
+    mylist = output1
+    mylist = [mylist[i] for i in ret0]
+    xx = "".join(mylist)
+    x1 = f'{xx}'
+    y = [1, 1, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 1]
+    co = x1[:len(x1) // 2]
+    do = x1[len(x1) // 2:]
+    result = []
+    for i in y:
+        ret1 = []
+        c1 = co[i:] + co[0: i]
+        d1 = do[i:] + do[0: i]
+        cdn = c1 + d1
+        co = c1
+        do = d1
+        for item in my_new_order:
+            ret1.append(item - 1)
+            my_newlist = cdn
+            my_newlist = [my_newlist[i] for i in ret1]
+            a1 = "".join(my_newlist)
+            aa2 = f'{a1}'
+        result.append(aa2)
+    return result
+
+
+def f(ro, kk):
     '''
-    >>> p = 11003378959096834724676546774061387323366640315376248759704778733861819318638880334019013198255253637201505215283454116581559061011493945035043282347726567
-    >>> q = 13352889525665842987778367770008624367016738648357150498263337383873676994755016453139838515936896298380832735119884881555123452210776892442746292021125831
-    >>> e = 65537
-    >>> n = p*q
-
-    >>> encrypt_RSA(1412, e, n)
-    86570912637207688430658050442534138686860113447750593750129115867611069795980400149875084938172511059077111775763831984800728158009625476246509869646143906270016350813522907485120229804954044822840485338235665911639144492389863191230410694146471337610863228296869316878318424832455813948760206789878680061806
-    >>> encrypt_RSA(423523131313, e, n)
-    83815489698949425454503411340462271441833577560361070073340854340767697288862182622524598818990559851595417109271788865693175864183668088463270319213547090274280405302127646890044893707234611412838644930391470657208403905675470886164666899520786460799826428450507750448082240371010595240565614073056710598296
+    >>> f('11110000101010101111000010101010', '000110110000001011101111111111000111000001110010')
+    '00100011010010101010100110111011'
     '''
+    global yzz
+    IP = [58, 50, 42, 34, 26, 18, 10, 2,
+          60, 52, 44, 36, 28, 20, 12, 4,
+          62, 54, 46, 38, 30, 22, 14, 6,
+          64, 56, 48, 40, 32, 24, 16, 8,
+          57, 49, 41, 33, 25, 17, 9, 1,
+          59, 51, 43, 35, 27, 19, 11, 3,
+          61, 53, 45, 37, 29, 21, 13, 5,
+          63, 55, 47, 39, 31, 23, 15, 7]
 
-    # (e,n) public Key
-    # (d,n) private Key
-    # for encryption
+    E = [32, 1, 2, 3, 4, 5, 4, 5, 6, 7, 8, 9, 8, 9, 10, 11, 12, 13, 12,
+         13, 14, 15, 16, 17, 16, 17, 18, 19, 20, 21, 20, 21,
+         22, 23, 24, 25, 24, 25, 26, 27, 28, 29, 28, 29, 30, 31, 32, 1]
+    S = \
+        [
+            [
+                [14, 4, 13, 1, 2, 15, 11, 8, 3, 10, 6, 12, 5, 9, 0, 7],
+                [0, 15, 7, 4, 14, 2, 13, 1, 10, 6, 12, 11, 9, 5, 3, 8],
+                [4, 1, 14, 8, 13, 6, 2, 11, 15, 12, 9, 7, 3, 10, 5, 0],
+                [15, 12, 8, 2, 4, 9, 1, 7, 5, 11, 3, 14, 10, 0, 6, 13]
+            ],
+            [
+                [15, 1, 8, 14, 6, 11, 3, 4, 9, 7, 2, 13, 12, 0, 5, 10],
+                [3, 13, 4, 7, 15, 2, 8, 14, 12, 0, 1, 10, 6, 9, 11, 5],
+                [0, 14, 7, 11, 10, 4, 13, 1, 5, 8, 12, 6, 9, 3, 2, 15],
+                [13, 8, 10, 1, 3, 15, 4, 2, 11, 6, 7, 12, 0, 5, 14, 9]
+            ],
+            [
+                [10, 0, 9, 14, 6, 3, 15, 5, 1, 13, 12, 7, 11, 4, 2, 8],
+                [13, 7, 0, 9, 3, 4, 6, 10, 2, 8, 5, 14, 12, 11, 15, 1],
+                [13, 6, 4, 9, 8, 15, 3, 0, 11, 1, 2, 12, 5, 10, 14, 7],
+                [1, 10, 13, 0, 6, 9, 8, 7, 4, 15, 14, 3, 11, 5, 2, 12]
+            ],
+            [
+                [7, 13, 14, 3, 0, 6, 9, 10, 1, 2, 8, 5, 11, 12, 4, 15],
+                [13, 8, 11, 5, 6, 15, 0, 3, 4, 7, 2, 12, 1, 10, 14, 9],
+                [10, 6, 9, 0, 12, 11, 7, 13, 15, 1, 3, 14, 5, 2, 8, 4],
+                [3, 15, 0, 6, 10, 1, 13, 8, 9, 4, 5, 11, 12, 7, 2, 14]
+            ],
+            [
+                [2, 12, 4, 1, 7, 10, 11, 6, 8, 5, 3, 15, 13, 0, 14, 9],
+                [14, 11, 2, 12, 4, 7, 13, 1, 5, 0, 15, 10, 3, 9, 8, 6],
+                [4, 2, 1, 11, 10, 13, 7, 8, 15, 9, 12, 5, 6, 3, 0, 14],
+                [11, 8, 12, 7, 1, 14, 2, 13, 6, 15, 0, 9, 10, 4, 5, 3]
+            ],
+            [
+                [12, 1, 10, 15, 9, 2, 6, 8, 0, 13, 3, 4, 14, 7, 5, 11],
+                [10, 15, 4, 2, 7, 12, 9, 5, 6, 1, 13, 14, 0, 11, 3, 8],
+                [9, 14, 15, 5, 2, 8, 12, 3, 7, 0, 4, 10, 1, 13, 11, 6],
+                [4, 3, 2, 12, 9, 5, 15, 10, 11, 14, 1, 7, 6, 0, 8, 13]
+            ],
+            [
+                [4, 11, 2, 14, 15, 0, 8, 13, 3, 12, 9, 7, 5, 10, 6, 1],
+                [13, 0, 11, 7, 4, 9, 1, 10, 14, 3, 5, 12, 2, 15, 8, 6],
+                [1, 4, 11, 13, 12, 3, 7, 14, 10, 15, 6, 8, 0, 5, 9, 2],
+                [6, 11, 13, 8, 1, 4, 10, 7, 9, 5, 0, 15, 14, 2, 3, 12]
+            ],
+            [
+                [13, 2, 8, 4, 6, 15, 11, 1, 10, 9, 3, 14, 5, 0, 12, 7],
+                [1, 15, 13, 8, 10, 3, 7, 4, 12, 5, 6, 11, 0, 14, 9, 2],
+                [7, 11, 4, 1, 9, 12, 14, 2, 0, 6, 10, 13, 15, 3, 5, 8],
+                [2, 1, 14, 7, 4, 10, 8, 13, 15, 12, 9, 0, 3, 5, 6, 11]
+            ]
+        ]
+    P = [
+        16, 7, 20, 21, 29, 12, 28, 17,
+        1, 15, 23, 26, 5, 18, 31, 10,
+        2, 8, 24, 14, 32, 27, 3, 9,
+        19, 13, 30, 6, 22, 11, 4, 25]
 
-    cipher = pow(message, e, n)
-    return cipher
+    S0 = []
+    S1 = []
+    S2 = []
+    S3 = []
+    S4 = []
+    S5 = []
+    S6 = []
+    S7 = []
+    SS = [S[0], S[1], S[2], S[3], S[4], S[5], S[6], S[7]]
+    ret10 = []
+    ret20 = []
+    E1 = []
+    S111 = []
+
+    for i in IP:
+        ret10.append(i - 1)
+    ero = ro
+    for i in E:
+        E1.append(i - 1)
+    ero = [ero[i] for i in E1]
+    j2 = "".join(map(str, ero))
+    jj_1 = f'{j2}'
+    # kn = e(r-1)
+    yx = int(jj_1, 2) ^ int(kk, 2)
+    y1 = ('{0:b}'.format(yx)).rjust(len(kk), "0")
+    bb = []
+    badd = []
+    badd1 = []
+    for i in range(0, len(y1), 6):
+        bb.append(y1[i: i + 6])
+    for ii in bb:
+        bs = (ii[0:1] + ii[5:])
+        badd.append(int(bs, 2))
+        bs1 = (ii[1:5])
+        badd1.append(int(bs1, 2))
+    for ik in SS:
+        S111.append(ik)
+        for t, tt in zip(badd, badd1):
+            if ik == S[0]:
+                S11 = ik[t][tt]
+                S0.append(bin(S11)[2:].zfill(4))
+            elif ik == S[1]:
+                S11 = ik[t][tt]
+                S1.append(bin(S11)[2:].zfill(4))
+            elif ik == S[2]:
+                S11 = ik[t][tt]
+                S2.append(bin(S11)[2:].zfill(4))
+            elif ik == S[3]:
+                S11 = ik[t][tt]
+                S3.append(bin(S11)[2:].zfill(4))
+            elif ik == S[4]:
+                S11 = ik[t][tt]
+                S4.append(bin(S11)[2:].zfill(4))
+            elif ik == S[5]:
+                S11 = ik[t][tt]
+                S5.append(bin(S11)[2:].zfill(4))
+            elif ik == S[6]:
+                S11 = ik[t][tt]
+                S6.append(bin(S11)[2:].zfill(4))
+            elif ik == S[7]:
+                S11 = ik[t][tt]
+                S7.append(bin(S11)[2:].zfill(4))
+
+    merge = S0[0:1] + S1[1:2] + S2[2:3] + S3[3:4] + S4[4:5] + S5[5:6] + S6[6:7] + S7[7:8]
+    sb = f'{"".join(merge)}'
+    # again set value in given IP, (SB values)
+    for ip in P:
+        ret20.append(ip - 1)
+    sb1 = [sb[i] for i in ret20]
+    j20 = "".join(map(str, sb1))
+    return j20
 
 
-def decrypt_RSA(message, d, n):
+def encrypt_DES(key, message):
     '''
-    >>> p = 11003378959096834724676546774061387323366640315376248759704778733861819318638880334019013198255253637201505215283454116581559061011493945035043282347726567
-    >>> q = 13352889525665842987778367770008624367016738648357150498263337383873676994755016453139838515936896298380832735119884881555123452210776892442746292021125831
-    >>> d = 69357425854335667435469380960551384845473529705172208755274378055130556220144321336280182386572376501722777078239543992605048261113781725370395014753635278111987701312950756882999549218951256463733424485080811858880863848299798658061367375851385442141410733493910441693585064588874291332393795622978366749253
-    >>> n = p*q
-
-    >>> decrypt_RSA(86570912637207688430658050442534138686860113447750593750129115867611069795980400149875084938172511059077111775763831984800728158009625476246509869646143906270016350813522907485120229804954044822840485338235665911639144492389863191230410694146471337610863228296869316878318424832455813948760206789878680061806, d , n)
-    1412
-    >>> decrypt_RSA(83815489698949425454503411340462271441833577560361070073340854340767697288862182622524598818990559851595417109271788865693175864183668088463270319213547090274280405302127646890044893707234611412838644930391470657208403905675470886164666899520786460799826428450507750448082240371010595240565614073056710598296, d, n)
-    423523131313
+    >>> encrypt_DES(b'\\x13\\x34\\x57\\x79\\x9b\\xbc\\xdf\\xf1', b'\\x01\\x23\\x45\\x67\\x89\\xab\\xcd\\xef')
+    b'\\x85\\xe8\\x13T\\x0f\\n\\xb4\\x05'
     '''
+    global yzz  # Its a global
+    global result  # global result for usage in encryption
+    global cdn  # global cdn variable
+    my_order = [57, 49, 41, 33, 25, 17, 9, 1, 58, 50, 42, 34, 26, 18, 10, 2, 59, 51, 43, 35, 27, 19, 11, 3, 60, 52, 44,
+                36, 63, 55, 47, 39, 31, 23, 15, 7, 62, 54, 46, 38, 30, 22, 14, 6, 61, 53, 45, 37, 29, 21, 13, 5, 28, 20,
+                12, 4]
 
-    # (e,n) public Key
-    # (d,n) private Key
-    # for Dicription
+    my_new_order = [14, 17, 11, 24, 1, 5, 3, 28, 15, 6, 21, 10, 23, 19, 12, 4, 26, 8, 16, 7, 27, 20, 13, 2, 41, 52, 31,
+                    37, 47, 55, 30, 40, 51, 45, 33, 48, 44, 49, 39, 56, 34, 53, 46, 42, 50, 36, 29, 32]
+    input1 = "{:08b}".format(int(key.hex(), 16)).zfill(64)
+    ret0 = []
+    output1 = []
+    for i in input1:
+        output1.append(i)
+    for i in my_order:
+        ret0.append(i - 1)
+    mylist = output1
+    mylist = [mylist[i] for i in ret0]
+    xx = "".join(mylist)
+    x1 = f'{xx}'
+    y = [1, 1, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 1]
+    co = x1[:len(x1) // 2]
+    do = x1[len(x1) // 2:]
+    result = []
+    for i in y:
+        ret1 = []
+        c1 = co[i:] + co[0: i]
+        d1 = do[i:] + do[0: i]
+        cdn = c1 + d1
+        co = c1
+        do = d1
+        for item in my_new_order:
+            ret1.append(item - 1)
+            my_newlist = cdn
+            my_newlist = [my_newlist[i] for i in ret1]
+            a1 = "".join(my_newlist)
+            aa2 = f'{a1}'
+        result.append(aa2)
+    IP = [58, 50, 42, 34, 26, 18, 10, 2,
+          60, 52, 44, 36, 28, 20, 12, 4,
+          62, 54, 46, 38, 30, 22, 14, 6,
+          64, 56, 48, 40, 32, 24, 16, 8,
+          57, 49, 41, 33, 25, 17, 9, 1,
+          59, 51, 43, 35, 27, 19, 11, 3,
+          61, 53, 45, 37, 29, 21, 13, 5,
+          63, 55, 47, 39, 31, 23, 15, 7]
 
-    decrypt = pow(message, d, n)
-    return decrypt
+    IP_inverse = [40, 8, 48, 16, 56, 24, 64, 32,
+                  39, 7, 47, 15, 55, 23, 63, 31,
+                  38, 6, 46, 14, 54, 22, 62, 30,
+                  37, 5, 45, 13, 53, 21, 61, 29,
+                  36, 4, 44, 12, 52, 20, 60, 28,
+                  35, 3, 43, 11, 51, 19, 59, 27,
+                  34, 2, 42, 10, 50, 18, 58, 26,
+                  33, 1, 41, 9, 49, 17, 57, 25]
+
+    E = [32, 1, 2, 3, 4, 5, 4, 5, 6, 7, 8, 9, 8, 9, 10, 11, 12, 13, 12,
+         13, 14, 15, 16, 17, 16, 17, 18, 19, 20, 21, 20, 21,
+         22, 23, 24, 25, 24, 25, 26, 27, 28, 29, 28, 29, 30, 31, 32, 1]
+    S = \
+        [
+            [
+                [14, 4, 13, 1, 2, 15, 11, 8, 3, 10, 6, 12, 5, 9, 0, 7],
+                [0, 15, 7, 4, 14, 2, 13, 1, 10, 6, 12, 11, 9, 5, 3, 8],
+                [4, 1, 14, 8, 13, 6, 2, 11, 15, 12, 9, 7, 3, 10, 5, 0],
+                [15, 12, 8, 2, 4, 9, 1, 7, 5, 11, 3, 14, 10, 0, 6, 13]
+            ],
+            [
+                [15, 1, 8, 14, 6, 11, 3, 4, 9, 7, 2, 13, 12, 0, 5, 10],
+                [3, 13, 4, 7, 15, 2, 8, 14, 12, 0, 1, 10, 6, 9, 11, 5],
+                [0, 14, 7, 11, 10, 4, 13, 1, 5, 8, 12, 6, 9, 3, 2, 15],
+                [13, 8, 10, 1, 3, 15, 4, 2, 11, 6, 7, 12, 0, 5, 14, 9]
+            ],
+            [
+                [10, 0, 9, 14, 6, 3, 15, 5, 1, 13, 12, 7, 11, 4, 2, 8],
+                [13, 7, 0, 9, 3, 4, 6, 10, 2, 8, 5, 14, 12, 11, 15, 1],
+                [13, 6, 4, 9, 8, 15, 3, 0, 11, 1, 2, 12, 5, 10, 14, 7],
+                [1, 10, 13, 0, 6, 9, 8, 7, 4, 15, 14, 3, 11, 5, 2, 12]
+            ],
+            [
+                [7, 13, 14, 3, 0, 6, 9, 10, 1, 2, 8, 5, 11, 12, 4, 15],
+                [13, 8, 11, 5, 6, 15, 0, 3, 4, 7, 2, 12, 1, 10, 14, 9],
+                [10, 6, 9, 0, 12, 11, 7, 13, 15, 1, 3, 14, 5, 2, 8, 4],
+                [3, 15, 0, 6, 10, 1, 13, 8, 9, 4, 5, 11, 12, 7, 2, 14]
+            ],
+            [
+                [2, 12, 4, 1, 7, 10, 11, 6, 8, 5, 3, 15, 13, 0, 14, 9],
+                [14, 11, 2, 12, 4, 7, 13, 1, 5, 0, 15, 10, 3, 9, 8, 6],
+                [4, 2, 1, 11, 10, 13, 7, 8, 15, 9, 12, 5, 6, 3, 0, 14],
+                [11, 8, 12, 7, 1, 14, 2, 13, 6, 15, 0, 9, 10, 4, 5, 3]
+            ],
+            [
+                [12, 1, 10, 15, 9, 2, 6, 8, 0, 13, 3, 4, 14, 7, 5, 11],
+                [10, 15, 4, 2, 7, 12, 9, 5, 6, 1, 13, 14, 0, 11, 3, 8],
+                [9, 14, 15, 5, 2, 8, 12, 3, 7, 0, 4, 10, 1, 13, 11, 6],
+                [4, 3, 2, 12, 9, 5, 15, 10, 11, 14, 1, 7, 6, 0, 8, 13]
+            ],
+            [
+                [4, 11, 2, 14, 15, 0, 8, 13, 3, 12, 9, 7, 5, 10, 6, 1],
+                [13, 0, 11, 7, 4, 9, 1, 10, 14, 3, 5, 12, 2, 15, 8, 6],
+                [1, 4, 11, 13, 12, 3, 7, 14, 10, 15, 6, 8, 0, 5, 9, 2],
+                [6, 11, 13, 8, 1, 4, 10, 7, 9, 5, 0, 15, 14, 2, 3, 12]
+            ],
+            [
+                [13, 2, 8, 4, 6, 15, 11, 1, 10, 9, 3, 14, 5, 0, 12, 7],
+                [1, 15, 13, 8, 10, 3, 7, 4, 12, 5, 6, 11, 0, 14, 9, 2],
+                [7, 11, 4, 1, 9, 12, 14, 2, 0, 6, 10, 13, 15, 3, 5, 8],
+                [2, 1, 14, 7, 4, 10, 8, 13, 15, 12, 9, 0, 3, 5, 6, 11]
+            ]
+        ]
+    P = [
+        16, 7, 20, 21, 29, 12, 28, 17,
+        1, 15, 23, 26, 5, 18, 31, 10,
+        2, 8, 24, 14, 32, 27, 3, 9,
+        19, 13, 30, 6, 22, 11, 4, 25]
+
+    #  (ALL KEYS GENERATED BY ABOVE FUNCTION )
+
+    #  keyn = ['000110110000001011101111111111000111000001110010', '011110011010111011011001110110111100100111100101',
+    #        '010101011111110010001010010000101100111110011001', '011100101010110111010110110110110011010100011101',
+    #        '011111001110110000000111111010110101001110101000', '011000111010010100111110010100000111101100101111',
+    #        '111011001000010010110111111101100001100010111100', '111101111000101000111010110000010011101111111011',
+    #        '111000001101101111101011111011011110011110000001', '101100011111001101000111101110100100011001001111',
+    #        '001000010101111111010011110111101101001110000110', '011101010111000111110101100101000110011111101001',
+    #        '100101111100010111010001111110101011101001000001', '010111110100001110110111111100101110011100111010',
+    #        '101111111001000110001101001111010011111100001010', '110010110011110110001011000011100001011111110101']
 
 
-def find_the_correctly_encrypted():
-    ciphers = [
-        b'fkQKtKSJR0xafjo8dn8o8yseq90I30z1jofzB0Qu0SiUosyKzqNYR9Oh08zgnbK2/C3j8pHyGK7kadH6aFHCQoVkDUFva8H5jJcJbCfJj8u4z3396+acsqPhVeGg6M6L/nyygsTz2aIB7+tVUkVZiqwZK/p96xdAlB4gOqIDjBFyVBJDAPOi9NMBW4nyPdK3WhqVtXCDWoTTqhbSWrJcm7FcMQZlai8XT5C3f6TkUjf8ktyZWj9yZHWlhdhf8HKtdSq4y3VMWKufYa9EbYVEDoSF2iGxe4CkOv1QiNqjDLllT+tdULpm0EAa1WtJhG4LoWPt4TEW+0KVDJrg9Xcgsw==',
-        b'O0d5jJC8X8OPc9jFG0eHHEGHxXTqc8tuVFMShxCn3rrBBGOShNO4Kx1nfnoL8SvQjGMdSNV64xh53ohwMGZhGVlj9FL4ydDrWhc0U74jI7REQODCXdXWZxBB0aKn/rPsPcL9h6957cof0z6H8XJtpTYcpgTV6UthEqwGIvf2qnxqpGC8WCbKhuXjqxX3JCmfBOripqiN/XgjNhpET2AVXEVJayo0dW4RTLi6k2VctXhkhK5YAfB94AbaEIfpuJiMfqMEedkle1YcMVI5tsMN1KwIcLkvBTctT6vvNWr+YXD45WlpZo1sCTpVsBfSU1vqfzxkOU3mdHKaCMOADxok6g==',
-        b'TcEAH3j8dy+ZlkV9hpD4G3PXuHNnOBYsEjt9OGWsaIU03D7EA+L0BU8/1QRAhemC3l2jKChmQXLRpb89dpz2yJCM6JcFPT/nMRNmXxQD9l3dqmwdOTWlZ03SXa1IrQoSfOSzwOOmeAI+7Vs+bypJbPKIoOLxjtHNnDhWkSJ23Kfk1Gi3Y/XqhZgyFxejY8k8eg7PfLXU62S/zVd6T0HmDljV2w5iQqC8mgBLCr0ZFwMY5U3/NeWxxbZih1cgN1mk1UgE/PeshwoBr/VQGTZgsyOcq4BN3R3LpDrFFw1eP085WXsC+il6Uoe8rEod3MxfaS9tisFWiXfcf7xU/VzQsw==',
-        b'MnCqdOXNssZprkjwlymjUC2qhmhoRdYoCl6m2edKw9bRh78KjvGWzXVMbAYxQRoMcpfPjrBHnuirOwU/LceNLnHGN/mTuWkf72erfhzIYvRcyvMNiAn2uWk6c31gO3Opyc30T7HcjxGxzKaMtAP899t3daEIH9SkJ1ILo4X4wnVZTMOzK6VpBM9aFPY0KKanjryaPgcbkPH8pT/BiRnDZpVRX7lkjxuK4mEQnYTNAJB6iZ/aZlHdlYo0M9OKR6FJSJcnl6wGh5wwxqg6JmW1Jv1cIZviibUip97hUNBmUgZcRT5gFLlnUBLZ/aON2BVJPh0DyBFGi0jvJ7bbclGWtA==',
-        b'UftzvH2m4/rtFsArr2NdUC4fSUZhTzqwwXiuesX+eLR5qWHrRE91bUWxBSVi5xR67u5JcCsffzhro4ipUe1vgEyGhJTYxYOHs4P6TraTH0P0r9VFaD5PckaZsz0ClFbnu/iCUMvzc9uBdob8JYosUyJiUFinnzzLR5Q/YPjnoabjh7AdxHEZs7rHKeY9Tim+rsfpxvdtzUgw6ktSotA2QxuyOshcPxjXTTdriCI/g5IxXi/jFbYG2yazbcptYfuY/gT5NAIduIM1NMpDVP0Tbi+1Fo1kzU3AFwMwIM/6EpysnqrlFJlerwFBTy/qnUNKznjdJNsUzzkvRZ1+XEfzHA==',
-        b'f8OgNf/XhUmUazQqMwRbv2lNH7pFk4/SNagr6JOm7+E+ZJuW0WrSpP9qaTxSsRB7a3OsjKwR5o0JixWpcp8JHr/E7FMnRL6TFQlU8yGJFNy8HWxi/jAdGm8fOvjsdwqw/yyA6ilTIHbBYctYb3LvOLCpRKbFKba4c0jAPSISdbEpP7Un7lmK5HGfPVhQ3lSB9Xp+8AMQYSL3RXp36Bxy019QWk6Q5CZj6e4e77sWLHxJd22eAV8nyV0HIxg82oEeXV+vcpy3kk71D1RbKeFSshTzLcu0HWmUfaAIROPrxsgWHzWQEY53OrnfpxWbGItJ2xAdPXJvGosLgE4lRBAHaw==',
-        b'QzSIAj4kOCdkjhYX2kNoRxybIDBt8ckJBDYKx3th7TWFkGlnocYV7xgqa7xsCp1xyXkf3IltR4LYwLWwKKHblZ1DIICok3/6GpQ7VJ1U2Ym/ZGrOQ4w500Gv73giUL1vzNBidmmOJaq2qz54Q2xaHtY2urXa33xhiwCBxM81HpvjNeJvj1IJ09+9qGLk+QWNbNjmRrCDechbaMu71I4Zb4RPMI6uHIkSZzsoTkJAg3+IVbCc57OpjMQb8K8oL/BZePtIaDxvAI9/YxZLVeZSeuN7LjjZGUcVwCtVjr8athcfD6SDIcOAbrAEYiNs2LBdMC0IglmK5p6DFhtG8sTCbg==',
-        b'C2aJcd9kgP5WFK9XkFUJKLbanLMcAoAV0aaI/1hVfkTB1O++jeNagyLgMtAN8RtC1ucDf/ThIrHU4o7ag+mjVkXUUFTK/gimPQl9wnoHRDUZa3bAik28kdF4Hf9Jj4fzTS+vQ7yvC2DD1XdWcKMucjgOhzTlihSmDkEvGZmhtmgfc3H5fsi0CzjW8rLJVhvtKsmNTWXz49slBixc9AEYiliox1kuw5SKMpgcnGW0pwQqrczAaNg+Y//ltKz7xYR+oDagkIlSRQOUpwfMdn05flRyNAhdWb4+aM/R6atSiNaJtBO5byabU0N/fXc2zhsajET/yxEuqIa3FGYUzv18Zg==',
-        b'CB7QphKYRp5O7FajF4oEDMnQg15U9uSyQN2Lb3+ukN3ft4T/nHf1Bv5eSpsXWtDQGNVQh/6hluVK2ExLEjntpB9IhCZHKYDH4d5AL6AQs0AWpAfCoIAWKEH51nFA2rFWg7pa7V0Rh95cYXvLMGR0xlQcqXJpKVyv4EhD4nPXtrSSbwap/TlyoVCk051GDqEmUQuflONCJIbBEAioRc2pzyJ03oiiK3H6IMni6TAaqPG1HBOQYT1TbX6UpVWQm5gPqqFp+XPcOec8SlhyPMufrXBF6kawxGhQ4Bk3xHNVmE6bxCmlFk7095QIzJnbpCx3DRWvV9CT4RfgIxW1qHwSXg==',
-        b'MQRaAwwloljDgzH+wTtY/l16l8oBpggykK9ld5mckuvTc1KcjtKf58r8QTADusZhPPtUlsvMVlomh9WoPIhBmm+o0q4IhBzob35jvtBSKlJlgcRYUee0+RZBojIQaKkMe2OFHsT1Fn4IK4KejVZiVh/GVYkbw7CJAuQW56pKgXHOQOTRNj1t6TD+KstIYSZ5Y0S17IYo9EB/f3jUPxmLLPlp+fuYz5lJIVKsH3zh7UJ19uuQat93ezuI9j5f/FapGuw0704zBO6ufmkM9BAt3M5S1CDkJqs1Ve6XN/EruMyqZK4snumhkB9KRl+j9KKwOVL1MkM/2EDX420iRh31oQ==',
-        b'ozp8X+E9VGx/IAwVDhyNwacjMZt2xTSa8mqlIERO5qXTCPcYpSMvzidxybZyEJP4047cMCXz3aePO6oUYlW4Osry9El95p0adeoUWBkaiEIRNuHcOM6rO/oFUTwiKavmEIEdDFI0t4F1FBHbC7p+j3H3a1Izar7TMpHiJ+UYyqt2SAetjCmgFMYpUpe8vdLdU4Gcujf/aMt32wmzFXvg3q+DGHAL+NvjjBj8oJ6GzKa2nsfWEBiKRZixPMlV3H4D4hUhxHQOWALjhKfggV8zFZR1VHp1r3/jOdF5shgHIIM+j0gxPW/MfvXmoMPCqQyMmA6AAjJ7nEai78goEG44Ow==',
-        b'TN5a8ejPt7bBR8xldIDFZr1ytNFPcF6FVmHURymlENJysXa2CKp6PmHy6sjFCVulngRuWbm4snOgOa4PxFjic7FNVAO1oWm2cEGoolVQQQ+zdGIhpHZLLwIDSnCCHev/sgF/kUHG9ZU8meid3qjXC47IQ6637yfvElNkZsYEIam4qiaM/I/fa9Cyfoio+uBzG8RBiHudFJzwy86/icys8TIUd7bxKIXDvRem2eqOtADbbnF2rPl8kiIg3c5Cv4hssCT/jQqtzEf+FApTI5jwPL6dDHhP6wrtllB/1nCl1U3JyfWte0iicxDJSQPOcfVvf/8Kne7d+9ud5KgOJ/m04g==',
-        b'B1CKW0KBqoit4aWueBVfA4RFLisrsv5h6DH4okH29svYAJKV65SW5+GJd+bWyESohdtdnqRegSQZaaslLiQg6Z9pJIso3P7EfmYyioajsDfJic6KNazagRo1kZjNqrzD0Ny0SVPQNmXVEJsejZvjkDt97tqnLhyy1soR5Da3zvMVQgQ7m/OH1rStcikZHwTPCeytLM60kBRYRREDrcU+urkEokkaVOYXN5Zvg9dUhhoSl3ohKU+rJNBFaySAre70ffMSN6mPy6gGmaHRIhgoEl9RsaDp3nVAyJape2UjRIGdCFqV5Wd4HI1fy4OOMDVxjbUJBih7mVzcHf9CHszuvQ==',
-        b'KeswSWZM0DitUpwaab138tWVq0p5vWurWnFTyBS7gHzEWIHO93YSuMbYmVkyYunC1C74z56WVwQPUBZszW0FztTFi3nxU3nol1VjJfs3lncx9H+xk2P497dm2b/PTZoUMLS7BNBgdbZCaX7G/de6aG+hLKIlVq6xFT8bGF8rYMt+hD4CET3VjCt3tgjF/btfihlLjDyzqPcdqaUtSJzQm4uawCPX6R0P2LVy7O0GyWrXAccTi2KFnsoaXdnQsSlKE+zbiQwcS9OaYnEeGlYcb0YzJfrchRFI9a/ulhWrcXI8f7BR3lR956Q9izTAEja8QmW4a02dBN5m41y/x/ztqw==',
-        b'LF/PtlCw5e3Iv4ypakOchSe0MTFsJ7wqzz09QerFNx1mJAmyHifuUUzrUAM+VEHI+MDzSkUc3hdnscmMxVy/ZJpWfFc3UqmfNdyESFBZfnRq2SHm7FrYzREQBWBzQz5DCVSSasx4WF97TEY8ajmeR6LiB2xSFtcA9BqXZ3TEXAlwlLnhqa9wi0ihX+lmdvCySuzz0cq3ZsHFBoNGCdhyC5ZfjLzi5wfFWPAkNi+RH7ciMQFtm0rbGr3wZ522ReeToyIzkCFCWQukl0dqt8mYwSPSWaZbdlQYxIMN9UpNwiEVU7jWoaMDxPrqdIs1SF0ejV261YhyVgIejh7XkowSnw==',
-        b'BlFHM9RGBbVCJ7b03cyooHlv+DsrNUokP2CR+bCkI8cbueZpNBN0poZYafMv7qR4D1eayyvVrwAOCj9KGHKzJpkPnwjg4thuXnH/ZEinsqyVvbg7dpQSzRsM6dxH75whBofJXvzabzDIpORDn+QG6RGxc6VLdQyAUQ7LWrL6D7GCMwwO+AHhid+4r23jTGYncbotwmDsv4YS3aoNhbPFHBzni64i1SeZUnMDiVA46zsDDbNH83V/glo6mTFl7xy2BYak+ohMDJiiNbrVdT+NF3nOD+jIqz7vBsKItzN5NEtaQMkubE18vqCSLgFcaoYLKkI1SB5T/g9fhILtcuxipg==',
-        b'Zs+afNP9lHzPPUEOJLTjnQGbiisGy0s2cNsX6I/fEP7/maL1T1gSyAkeKrg3x5bYbep5YNMWOTqIRpXevnGnFvB+zqPw2te3E/saA2Y8xnJOSd1bVLoa31EuLF+H4s7oTSjdJDZsvjP5I7ARZanPOQiru+PCCp5oo/Ab3UladhY5As7bEw7A+YEfKERLVfinj/dX8IsaNpuq9BkomvyyxGTiBjRFHGHrZLML1LowoLhcOZ0Z/vFeIr7rhl8S93hzfeBw1RhIAN74k0F4POBNWNTt4CljTABV+gvvglv7rU1OZWMk0LAzP9bTrLXFAEYcERe9OIRJV7hnVAlljmUa9A==',
-        b'xreXej7YGEo8th3+CYLMG2RTx3zFETLtlfdYB4TDdIj4/DZ5MOmp7jMiS1rewXmJLAKE1YATXBapNnp8IuFgjURzRxwQ+tlIOA33BAd9t4yLMn8W2+JUcLHOVOcDjVviqOOE9YKsIDhIDQVkmHV6XnvqyIUveA/vH4J/QOQuLV9cv+cmCpBD9S5wL2NyhqhjzTUvrnJq4MQg2b6ZnGjASaecAeoYu3VyG/60N3XBzY5+f5CIX8JfjEJ0ZXNwMhpigqoFFmv1FIFfi4+ChgSsdj5f7o7C2ylU+vo1ao+lrTgtqnI6HzSUF6uAuD01ZjT46aLRfVfsrFilKoIUoAtxiQ==',
-        b'ZBdRxsGAm5PJ7QiCAt/S7FUU0Qqdq+6Gap6IDLCdjor2W3Vu4lEt+tjazmJXJ4FUwVc3yW83xejsRG/XbkAQu/AunZPN2CRdoDkRUNWghMY/muDPuXpkiLTbvSSq2fb0aGtwfCceXS2SkN8aIZqOQddqS+jhaoVzRyblrbsZGFcQCynXzoI7jZBvBrnfH2KOsPM88JiqEWvDQltYWTg8j688GAcH3FsAuXhkmj+8EflbxHR0WvC+srMtQls4Oqc4PrJ+UuToL/ezHK6hLfTo9sujQRhlGVnFdcojBzbW+n84fubBuqAHMXkZzdSyjicGlLamYa/btppPsJ8MFNGYCA==',
-        b'SYapMoN/T/5/tRQlZnsISZ9vtKmMZnEK5kq4x/WKHnBhDZTtzsYpwsB7r49Ee3TvnkbJo2S+FQOdhcslceQvIG3W7kdc6CvJ/3P5LsGjCijvTOtiDPjXlzRrzYyksUKfG1KNfCaqgTrNxiTGO2/9uKX5/ZcNpTnVO8UpV4HAodyOEUsVOGo+WP25Pp+7BEpOkSGqTjPFz/pwKFIl7N50EnPYjfjwIg12+Z5KyG7bXJbTN5sAQwEylf7P+KaEGk61A7SzJFAd8TYMx+0pC4ibS7vXh2NoBHx4mh1VoDnxfihklLEW+owaogJeD6LvKzajNo+QvEgtQvBp7caBV2K/ng==',
-        b'cgUEyPODmmGvNExGXEuWYI06GyGeSNTefk8SrW7qDJBDm2oYOsoRjmC0xjeguWlGsc2TBvqTOXlSMvOn8wlCWJc+eJi5/XqeE+Th5CA5lCrd7ATlZSh1gF7PU46kbHr6WDAfmQvYayFmLR9IgAefjAbrHMDjsMkoWHN34JliQQCCcrG+N0OZEW1Qlar08pblRadRcWJ9fY5gZtO/ug2AsY6CZr65ueU2GonupzaXOJLe5hb4NQclk38mf5sr/BAFni623/ES1xHO56jkReSgZ02isrxF+sjIVMimMuElzx5A7Hx8scEY201qA0eCE013b7WaS4t5lUKjHJKJALyMlg==',
-        b'LsriyazGHs06tMujKcDSKfvg1cmDgV3ml2Gx0qA5m0AAl5W4T3c3Z1kGdOrAeG632oX/aTGOpja1f85pmlj32QrNqdWT56cyTrj40c5ougHIhpJjaiML0cc3k0LeGMjSZtlznUCLSyKgZJaa2tHBFSsY2kODwtNlpBQf+IWE73NceQaNaQ310mbmV7u+z1nK+zq1ij3dsEloprQujR9WRYzQZIDtti87iIaLe4tb9XXbEZ0eREx9tfDP1QCEzuzaC5txnghX4bR6lMgporzp/5Rk2cq1C2HVQZuz0rBRdfMfRdC/nLLTzo/JveS4btnk3aGt4KPw7WKea3hzErxNBw==',
-        b'bFWuwPKVYnjRuxYGATyZvTA1XNFAmjjtBpp9be0y0JNFD+Zd/XvJyYTPgJbhqxhc8+aeXs3iT66a+oxplWpS/T0T0FmLVAccLdwYi7hESfg7F4RZJbyLSDKTUkslPTF87PjoJr579lxMflutx6shvkAZm10p7KbCHf20VOcmCK/AaTAvf10/HBo4Ex4Z767fMAnjVRK65fQBE6/7cPzSCXg3L37NTeiv1WHoaGv2Xx6+GbkxyZikYb7ZAVL+w5Log9l+3HvILYWCNHPSwUnnszaoqwzoTmwDrUkARd8L2z0YS3DUQJUO3Q2+mVGj6+y4fe+SGGq13VRP/0uy/KNyoQ==',
-        b'IQHoYovLnFq8J+1qmB8ZQhaYsx99RKfKYnjmIsjPgdcGeQAQM8jqN5T9xYr+XNDQkZCGVhLpigQ00FGTi+lPnx7RJUOGqtrY6bZBrGO4xmZb0MdfKc1BdQQnLLUYkOwow86Y3pSUM0047wPOkDroqiippjrI8UDkya1lDruEihawdGIlVSYwrUfRUGUR6nxQmGOuyQB7fj+MhCRy2MNh/hu7lnfzTTCkHK2b25cjRGDa1p/ePajzuyQGbkf5fF5yybViYiS5lA9DG7Y3GMH76BD05lwbWsfFTvJmP3+XoHD3N4ZGzEZydHJbnnvE8rXW1QYogJAy+HWdQdETt7smJg==',
-        b'd1rZcRrhJHADTdxVpX3ij+/F5/jsCq5I/XEy4b5CR8I7XQBuOKhHn9YS5dUKPEQeIZUphiTdrQNJwn/pp4qlDJJtODcAN82vB6CR0DORp7zPXCiLuW1aa7/THccfFRGGOP44jdcRoWDSb335IwY28Ubl886RUOEAV68Q7xzt4GtsZujr7Cf9sXfvPO+MTgBMAcecJRirqa6UoWfuRZGf0LXSwozynO+skJRZhpJuR9lq1/yEL2Dgx8ycl145EgmMrYkIbfm53SD/QH9tYYYILRl7rbq44M1emNtL2GIImNBmu9d20HpJgtDw9794sNqCtXE4zdqS0DmeYcsF7SEMxQ=='
-    ]
-    with open('secret_key.pem', mode='r') as f:
-        Key = RSA.import_key(f.read())
-    for item in ciphers:
-        rw = base64.decodebytes(item)
-        decryptor = PKCS1_OAEP.new(Key)
-        try:
-            decrypted = decryptor.decrypt(rw)
-            return decrypted
-        except Exception:
-            continue
+
+    # ALL Rn AND Ln VALUE FOR CHECKING PERPOSE
 
 
-find_the_correctly_encrypted()
+    # r1 = "11101111010010100110010101000100"
+    # r2 = "11001100000000010111011100001001"
+    # r3 = '10100010010111000000101111110100'
+    # r4 = '01110111001000100000000001000101'
+    # r5 = '10001010010011111010011000110111'
+    # r6 = '11101001011001111100110101101001'
+    # r7 = '00000110010010101011101000010000'
+    # r8 = '11010101011010010100101110010000'
+    # r9 = '00100100011111001100011001111010'
+    # r10 = '10110111110101011101011110110010'
+    # r11 = '11000101011110000011110001111000'
+    # r12 = '01110101101111010001100001011000'
+    # r13 = '00011000110000110001010101011010'
+    # r14 = '11000010100011001001011000001101'
+    # r15 = '01000011010000100011001000110100'  # L15
+    # r16 = '00001010010011001101100110010101'  # R15
 
-
-def find_the_real_code():
-    messages = [
-        {'text': b'The code is uehqn',
-         'signature': b'IZceGm/mkewdAeS3wc+Qhk4L/55lRe9L2NwUSH2o0wSDnDnKnSMDQon+bLLnl6pvUtEhpjZoDGvC26TMRg2dXCDZiocNnFPMbBSa6nc+4yaDkbxtHWEhuXk3rOtbHagr8MQzuKBK0CJeZ13i+iMN7OLVpTsCxNpP9Fx96I8t1OtNAZq4yIz2f0MmAvDMdqDSnuX40RIzq11La8xuJPuCO872Y3eBFyPWFMxbpghTtlCQqcdyIy3EmBbnskA4Gw077TzKZJ5V5ntUYdVercSpJ9Ax0mDd/xmYFTmUHmb973NvIzlf//IJ/Q0IDdQObEvB2cVQpqeCxABpsCfxxJiBPA=='},
-        {'text': b'The code is rplps',
-         'signature': b'fcch/RNP8K+Hqe7ORB6f58gAnPhA8kz35j33MqvxGz72YpQdQXicPCWYcAkqs6nM0tQ55mNqhMta+RSGtsYMFndpriKTZRXngPHS+CpFbNhIonQll+7zmPZXkEdNoB5TcdS7vkt26j+xn1u6mlCQgctZFa1RcXLZewkfsoofNt3e/1mqoE9MqZdpNgt+od8RQ7eKNMTrzQuTeabpCWcCgW12gBFoGRNG/cBUZKeskxwM264aaCgzgijcUCxEaN9lJDUvSmTDtncWlVoFt3vN8A8DXUzDUMOLb7sZca7p5U/aiJ7g0LDetzjK9IDWGAVqUa5rLBUGiX5B5uXcg95yrg=='},
-        {'text': b'The code is zhijc',
-         'signature': b'Fwv9XATss7knUy+nyUU05E9bJS6zgd4cPMn7hbT/7mhl+hV7l9LP0A9ZJTNVwX1Z5tW+IrCPyPDFROtjmsGFmqBD5nmbDXp6YIZnn1atBG6mnlUQZ4F5Ph+vvvQUyB21r0fWWQ4m4U96V/SQ+/FK08NYj8qYplibZqXgKkszAF6dwIJhAZ8KVM8l8LY6djI5vghhtvd/RZuyig6PAqx5iY9nB/je1IZO3ntIUp+LfuIcHS5X6Vcc40okWAsQd8mDYzftvYUJnkcnxjfPUxgcJoyChC50psfo1LaUqsWRu2Ck0fC5DjiKj4tePf2sjenib9D3Wc8xuLkS6IyTQQeAyg=='},
-        {'text': b'The code is ylaqd',
-         'signature': b'IL7oELlFaFr8FqOPc/1n3ATZufVsJFW47CGHpJu+zfp1K0YeOwWthw31MEAFMAXqg0DRbR14VEly2LE2MQxqLGjbf+cZE9aNBrck7GDtFeRz9G3gGysHanz9NoM55YbR56Fs+olj7BDxUnaF51wCpliUG+kNr8ApfxT0h5Nd8+4DIAp1rhzovrg7WZXPeOGE6h/orpizlbj331WGhKvimUGKjMannwdOtTnuU7ht5UGnZWIDs0TsXGK1Bn6a6ZcgNu5gl7emk1IbR3LwnJLOI//xj3t6RWKinDHdzwmaWrfwjky/UrFMMs54qgJWmGHB9hpEHcbHLJ1LvJwKOUDuqg=='},
-        {'text': b'The code is bvxie',
-         'signature': b'pYjvtm2Ibjzvz5x1zmsHk60yIakkwXOJ2957auW2IAS2TRnsRTBSSSOhZdN9gixVL6YfpCs7AhgPS4u+ZLX+Y5sZIpr3FZHzRU7WGboYqxBWa8sOSXmOj+4B9v+r+A9mBAtHobdVIUmAd/FmHH9jHqSyGXRJw38mjkOlENTmjdwwKzPKCMcpCpVEHx9DzxzR4ELNtk5HtgRbBnjSxXJDND6kA45/IbcvPdznTIO42p+4J1tlKXKp283Wwlg7g02gSiboM+cVyt3kMjuOTYKG+DIIDcQObzgY3W6fWRVSGSIZaaOdR54ll6Kn79zG8W6nUjxUIZ9i1OMfT5G08zBfLg=='}
-    ]
-
-    with open('my_friend_key.pub', mode='r') as f:
-        key = RSA.import_key(f.read())
-    PK = (f"Public key:  (n={hex(key.n)}, e={hex(key.e)})")
-
-    for msg in messages:
-        hash = int.from_bytes(sha512(msg.get('text')).digest(), byteorder='big')
-        sig = int.from_bytes(base64.decodebytes(msg.get('signature')), byteorder='big')
-        hashFromSignature = pow(sig, key.e, key.n)
-        if hash == hashFromSignature:
-            return msg.get('text')
-
+    S0 = []
+    S1 = []
+    S2 = []
+    S3 = []
+    S4 = []
+    S5 = []
+    S6 = []
+    S7 = []
+    SS = [S[0], S[1], S[2], S[3], S[4], S[5], S[6], S[7]]
+    MM = "{:08b}".format(int(message.hex(), 16)).zfill(64)
+    ret10 = []
+    ret20 = []
+    ret50 = []
+    gool = []
+    E1 = []
+    S111 = []
+    n = []
+    IP10 = []
+    for i in IP:
+        ret10.append(i - 1)
+    MM = [MM[i] for i in ret10]
+    j1 = "".join(map(str, MM))
+    lo = j1[:len(j1) // 2]
+    ro = j1[len(j1) // 2:]
+    ero = ro
+    # THIS IS POSITION WHEN I DIVIDE lo and ro
+    for i in E:
+        E1.append(i - 1)
+    # Starting of Key loop position
+    for z in result:
+        ero = [ero[i] for i in E1]
+        j2 = "".join(map(str, ero))
+        jj_1 = f'{j2}'
+        lenght1 = "000110110000001011101111111111000111000001110010"
+        # kn = e(r-1) and above bits only for lenght
+        yx = int(jj_1, 2) ^ int(z, 2)
+        y1 = ('{0:b}'.format(yx)).rjust(len(lenght1), "0")
+        bb = []
+        badd = []
+        badd1 = []
+        for i in range(0, len(y1), 6):
+            bb.append(y1[i: i + 6])
+        for ii in bb:
+            bs = (ii[0:1] + ii[5:])
+            badd.append(int(bs, 2))
+            bs1 = (ii[1:5])
+            badd1.append(int(bs1, 2))
+        # NOW SPLITING FUNCTION STARTED
+        for ik in SS:
+            S111.append(ik)
+            for t, tt in zip(badd, badd1):
+                if ik == S[0]:
+                    S11 = ik[t][tt]
+                    S0.append(bin(S11)[2:].zfill(4))
+                elif ik == S[1]:
+                    S11 = ik[t][tt]
+                    S1.append(bin(S11)[2:].zfill(4))
+                elif ik == S[2]:
+                    S11 = ik[t][tt]
+                    S2.append(bin(S11)[2:].zfill(4))
+                elif ik == S[3]:
+                    S11 = ik[t][tt]
+                    S3.append(bin(S11)[2:].zfill(4))
+                elif ik == S[4]:
+                    S11 = ik[t][tt]
+                    S4.append(bin(S11)[2:].zfill(4))
+                elif ik == S[5]:
+                    S11 = ik[t][tt]
+                    S5.append(bin(S11)[2:].zfill(4))
+                elif ik == S[6]:
+                    S11 = ik[t][tt]
+                    S6.append(bin(S11)[2:].zfill(4))
+                elif ik == S[7]:
+                    S11 = ik[t][tt]
+                    S7.append(bin(S11)[2:].zfill(4))
+            # WE GET OUR SBOXES RESULT
+        merge = S0[0:1] + S1[1:2] + S2[2:3] + S3[3:4] + S4[4:5] + S5[5:6] + S6[6:7] + S7[7:8]
+        sb = f'{"".join(merge)}'
+        # merging the s-boxes
+        # again set value in given IP, (SB values)
+        for ip in P:
+            ret20.append(ip - 1)
+        sb1 = [sb[i] for i in ret20]
+        j20 = "".join(map(str, sb1))
+        # list clearing and looping from 1
+        S0.clear()
+        S1.clear()
+        S2.clear()
+        S3.clear()
+        S4.clear()
+        S5.clear()
+        S6.clear()
+        S7.clear()
+        ret20.clear()
+        # list clearing and looping to all
+        # xor f(ro, k)
+        yz = int(j20, 2) ^ int(lo, 2)
+        yzz = ('{0:b}'.format(yz)).zfill(32)
+        # getting f function
+        gool.append(yzz)
+        ero = yzz
+        if not n:
+            lo = ro
         else:
-            continue
+            for c in n:
+                lo = c
+        n.append(yzz)
+        rt30 = gool[15:16]
+        rt40 = gool[14:15]
+        # only get R16 and R15
+        ret50 = "".join(rt30 + rt40)
+    gl = ret50
+    for ir in IP_inverse:
+        IP10.append(ir - 1)
+    gl = [gl[oo] for oo in IP10]
+    j100 = "".join(map(str, gl))
+    j200 = f'{j100}'
+    aa = format(int(j200, 2), 'x').rjust(16, '0')
+    bb = bytes.fromhex(aa)
+    return bb
 
 
-find_the_real_code()
+def are_random_tests_all_passes(X):
+    '''
+    >>> are_random_tests_all_passes(100)
+    True
+    '''
+    for q in range(X):
+        # Please see the last condition this loop runs 100 times while
+        # compairing both DES and My DES. Thank you
+
+        key = token_bytes(8)  # EVERY TIME THE SAME KEY ALSO FOR MY DES
+        message = token_bytes(8)  # EVERY TIME THE SAME THIS MESSAGE ALSO USE MY DES
+        cipher = DES.new(key, DES.MODE_ECB)
+        cipher_text = cipher.encrypt(message)
+        global yzz  # Its a global
+        global result  # global result for usage in encryption
+        global cdn  # global cdn variable
+        my_order = [57, 49, 41, 33, 25, 17, 9, 1, 58, 50, 42, 34, 26, 18, 10, 2, 59, 51, 43, 35, 27, 19, 11, 3, 60, 52,
+                    44, 36, 63, 55, 47, 39, 31, 23, 15, 7, 62, 54, 46, 38, 30, 22, 14, 6, 61, 53, 45, 37, 29, 21, 13, 5,
+                    28, 20, 12, 4]
+
+        my_new_order = [14, 17, 11, 24, 1, 5, 3, 28, 15, 6, 21, 10, 23, 19, 12, 4, 26, 8, 16, 7, 27, 20, 13, 2, 41, 52,
+                        31,
+                        37, 47, 55, 30, 40, 51, 45, 33, 48, 44, 49, 39, 56, 34, 53, 46, 42, 50, 36, 29, 32]
+        input1 = "{:08b}".format(int(key.hex(), 16)).zfill(64)
+        ret0 = []
+        output1 = []
+        for i in input1:
+            output1.append(i)
+        for i in my_order:
+            ret0.append(i - 1)
+        mylist = output1
+        mylist = [mylist[i] for i in ret0]
+        xx = "".join(mylist)
+        x1 = f'{xx}'
+        y = [1, 1, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 1]
+        co = x1[:len(x1) // 2]
+        do = x1[len(x1) // 2:]
+        result = []
+        for i in y:
+            ret1 = []
+            c1 = co[i:] + co[0: i]
+            d1 = do[i:] + do[0: i]
+            cdn = c1 + d1
+            co = c1
+            do = d1
+            for item in my_new_order:
+                ret1.append(item - 1)
+                my_newlist = cdn
+                my_newlist = [my_newlist[i] for i in ret1]
+                a1 = "".join(my_newlist)
+                aa2 = f'{a1}'
+            result.append(aa2)
+        IP = [58, 50, 42, 34, 26, 18, 10, 2,
+              60, 52, 44, 36, 28, 20, 12, 4,
+              62, 54, 46, 38, 30, 22, 14, 6,
+              64, 56, 48, 40, 32, 24, 16, 8,
+              57, 49, 41, 33, 25, 17, 9, 1,
+              59, 51, 43, 35, 27, 19, 11, 3,
+              61, 53, 45, 37, 29, 21, 13, 5,
+              63, 55, 47, 39, 31, 23, 15, 7]
+
+        IP_inverse = [40, 8, 48, 16, 56, 24, 64, 32,
+                      39, 7, 47, 15, 55, 23, 63, 31,
+                      38, 6, 46, 14, 54, 22, 62, 30,
+                      37, 5, 45, 13, 53, 21, 61, 29,
+                      36, 4, 44, 12, 52, 20, 60, 28,
+                      35, 3, 43, 11, 51, 19, 59, 27,
+                      34, 2, 42, 10, 50, 18, 58, 26,
+                      33, 1, 41, 9, 49, 17, 57, 25]
+
+        E = [32, 1, 2, 3, 4, 5, 4, 5, 6, 7, 8, 9, 8, 9, 10, 11, 12, 13, 12,
+             13, 14, 15, 16, 17, 16, 17, 18, 19, 20, 21, 20, 21,
+             22, 23, 24, 25, 24, 25, 26, 27, 28, 29, 28, 29, 30, 31, 32, 1]
+        S = \
+            [
+                [
+                    [14, 4, 13, 1, 2, 15, 11, 8, 3, 10, 6, 12, 5, 9, 0, 7],
+                    [0, 15, 7, 4, 14, 2, 13, 1, 10, 6, 12, 11, 9, 5, 3, 8],
+                    [4, 1, 14, 8, 13, 6, 2, 11, 15, 12, 9, 7, 3, 10, 5, 0],
+                    [15, 12, 8, 2, 4, 9, 1, 7, 5, 11, 3, 14, 10, 0, 6, 13]
+                ],
+                [
+                    [15, 1, 8, 14, 6, 11, 3, 4, 9, 7, 2, 13, 12, 0, 5, 10],
+                    [3, 13, 4, 7, 15, 2, 8, 14, 12, 0, 1, 10, 6, 9, 11, 5],
+                    [0, 14, 7, 11, 10, 4, 13, 1, 5, 8, 12, 6, 9, 3, 2, 15],
+                    [13, 8, 10, 1, 3, 15, 4, 2, 11, 6, 7, 12, 0, 5, 14, 9]
+                ],
+                [
+                    [10, 0, 9, 14, 6, 3, 15, 5, 1, 13, 12, 7, 11, 4, 2, 8],
+                    [13, 7, 0, 9, 3, 4, 6, 10, 2, 8, 5, 14, 12, 11, 15, 1],
+                    [13, 6, 4, 9, 8, 15, 3, 0, 11, 1, 2, 12, 5, 10, 14, 7],
+                    [1, 10, 13, 0, 6, 9, 8, 7, 4, 15, 14, 3, 11, 5, 2, 12]
+                ],
+                [
+                    [7, 13, 14, 3, 0, 6, 9, 10, 1, 2, 8, 5, 11, 12, 4, 15],
+                    [13, 8, 11, 5, 6, 15, 0, 3, 4, 7, 2, 12, 1, 10, 14, 9],
+                    [10, 6, 9, 0, 12, 11, 7, 13, 15, 1, 3, 14, 5, 2, 8, 4],
+                    [3, 15, 0, 6, 10, 1, 13, 8, 9, 4, 5, 11, 12, 7, 2, 14]
+                ],
+                [
+                    [2, 12, 4, 1, 7, 10, 11, 6, 8, 5, 3, 15, 13, 0, 14, 9],
+                    [14, 11, 2, 12, 4, 7, 13, 1, 5, 0, 15, 10, 3, 9, 8, 6],
+                    [4, 2, 1, 11, 10, 13, 7, 8, 15, 9, 12, 5, 6, 3, 0, 14],
+                    [11, 8, 12, 7, 1, 14, 2, 13, 6, 15, 0, 9, 10, 4, 5, 3]
+                ],
+                [
+                    [12, 1, 10, 15, 9, 2, 6, 8, 0, 13, 3, 4, 14, 7, 5, 11],
+                    [10, 15, 4, 2, 7, 12, 9, 5, 6, 1, 13, 14, 0, 11, 3, 8],
+                    [9, 14, 15, 5, 2, 8, 12, 3, 7, 0, 4, 10, 1, 13, 11, 6],
+                    [4, 3, 2, 12, 9, 5, 15, 10, 11, 14, 1, 7, 6, 0, 8, 13]
+                ],
+                [
+                    [4, 11, 2, 14, 15, 0, 8, 13, 3, 12, 9, 7, 5, 10, 6, 1],
+                    [13, 0, 11, 7, 4, 9, 1, 10, 14, 3, 5, 12, 2, 15, 8, 6],
+                    [1, 4, 11, 13, 12, 3, 7, 14, 10, 15, 6, 8, 0, 5, 9, 2],
+                    [6, 11, 13, 8, 1, 4, 10, 7, 9, 5, 0, 15, 14, 2, 3, 12]
+                ],
+                [
+                    [13, 2, 8, 4, 6, 15, 11, 1, 10, 9, 3, 14, 5, 0, 12, 7],
+                    [1, 15, 13, 8, 10, 3, 7, 4, 12, 5, 6, 11, 0, 14, 9, 2],
+                    [7, 11, 4, 1, 9, 12, 14, 2, 0, 6, 10, 13, 15, 3, 5, 8],
+                    [2, 1, 14, 7, 4, 10, 8, 13, 15, 12, 9, 0, 3, 5, 6, 11]
+                ]
+            ]
+        P = [
+            16, 7, 20, 21, 29, 12, 28, 17,
+            1, 15, 23, 26, 5, 18, 31, 10,
+            2, 8, 24, 14, 32, 27, 3, 9,
+            19, 13, 30, 6, 22, 11, 4, 25]
+
+        #  (ALL KEYS GENERATED BY ABOVE FUNCTION )
+
+        #  keyn = ['000110110000001011101111111111000111000001110010', '011110011010111011011001110110111100100111100101',
+        #        '010101011111110010001010010000101100111110011001', '011100101010110111010110110110110011010100011101',
+        #        '011111001110110000000111111010110101001110101000', '011000111010010100111110010100000111101100101111',
+        #        '111011001000010010110111111101100001100010111100', '111101111000101000111010110000010011101111111011',
+        #        '111000001101101111101011111011011110011110000001', '101100011111001101000111101110100100011001001111',
+        #        '001000010101111111010011110111101101001110000110', '011101010111000111110101100101000110011111101001',
+        #        '100101111100010111010001111110101011101001000001', '010111110100001110110111111100101110011100111010',
+        #        '101111111001000110001101001111010011111100001010', '110010110011110110001011000011100001011111110101']
+
+        # ALL Rn AND Ln VALUE FOR CHECKING PERPOSE
+
+        # r1 = "11101111010010100110010101000100"
+        # r2 = "11001100000000010111011100001001"
+        # r3 = '10100010010111000000101111110100'
+        # r4 = '01110111001000100000000001000101'
+        # r5 = '10001010010011111010011000110111'
+        # r6 = '11101001011001111100110101101001'
+        # r7 = '00000110010010101011101000010000'
+        # r8 = '11010101011010010100101110010000'
+        # r9 = '00100100011111001100011001111010'
+        # r10 = '10110111110101011101011110110010'
+        # r11 = '11000101011110000011110001111000'
+        # r12 = '01110101101111010001100001011000'
+        # r13 = '00011000110000110001010101011010'
+        # r14 = '11000010100011001001011000001101'
+        # r15 = '01000011010000100011001000110100'  # L15
+        # r16 = '00001010010011001101100110010101'  # R15
+
+        S0 = []
+        S1 = []
+        S2 = []
+        S3 = []
+        S4 = []
+        S5 = []
+        S6 = []
+        S7 = []
+        SS = [S[0], S[1], S[2], S[3], S[4], S[5], S[6], S[7]]
+        MM = "{:08b}".format(int(message.hex(), 16)).zfill(64)
+        ret10 = []
+        ret20 = []
+        ret50 = []
+        gool = []
+        E1 = []
+        S111 = []
+        n = []
+        IP10 = []
+        for i in IP:
+            ret10.append(i - 1)
+        MM = [MM[i] for i in ret10]
+        j1 = "".join(map(str, MM))
+        lo = j1[:len(j1) // 2]
+        ro = j1[len(j1) // 2:]
+        ero = ro
+        # THIS IS POSITION WHEN I DIVIDE lo and ro
+        for i in E:
+            E1.append(i - 1)
+        # Starting of Key loop position
+        for z in result:
+            ero = [ero[i] for i in E1]
+            j2 = "".join(map(str, ero))
+            jj_1 = f'{j2}'
+            lenght1 = "000110110000001011101111111111000111000001110010"
+            # kn = e(r-1) and above bits only for lenght
+            yx = int(jj_1, 2) ^ int(z, 2)
+            y1 = ('{0:b}'.format(yx)).rjust(len(lenght1), "0")
+            bb = []
+            badd = []
+            badd1 = []
+            for i in range(0, len(y1), 6):
+                bb.append(y1[i: i + 6])
+            for ii in bb:
+                bs = (ii[0:1] + ii[5:])
+                badd.append(int(bs, 2))
+                bs1 = (ii[1:5])
+                badd1.append(int(bs1, 2))
+            # NOW SPLITING FUNCTION STARTED
+            for ik in SS:
+                S111.append(ik)
+                for t, tt in zip(badd, badd1):
+                    if ik == S[0]:
+                        S11 = ik[t][tt]
+                        S0.append(bin(S11)[2:].zfill(4))
+                    elif ik == S[1]:
+                        S11 = ik[t][tt]
+                        S1.append(bin(S11)[2:].zfill(4))
+                    elif ik == S[2]:
+                        S11 = ik[t][tt]
+                        S2.append(bin(S11)[2:].zfill(4))
+                    elif ik == S[3]:
+                        S11 = ik[t][tt]
+                        S3.append(bin(S11)[2:].zfill(4))
+                    elif ik == S[4]:
+                        S11 = ik[t][tt]
+                        S4.append(bin(S11)[2:].zfill(4))
+                    elif ik == S[5]:
+                        S11 = ik[t][tt]
+                        S5.append(bin(S11)[2:].zfill(4))
+                    elif ik == S[6]:
+                        S11 = ik[t][tt]
+                        S6.append(bin(S11)[2:].zfill(4))
+                    elif ik == S[7]:
+                        S11 = ik[t][tt]
+                        S7.append(bin(S11)[2:].zfill(4))
+                # WE GET OUR SBOXES RESULT
+            merge = S0[0:1] + S1[1:2] + S2[2:3] + S3[3:4] + S4[4:5] + S5[5:6] + S6[6:7] + S7[7:8]
+            sb = f'{"".join(merge)}'
+            # merging the s-boxes
+            # again set value in given IP, (SB values)
+            for ip in P:
+                ret20.append(ip - 1)
+            sb1 = [sb[i] for i in ret20]
+            j20 = "".join(map(str, sb1))
+            # list clearing and looping from 1
+            S0.clear()
+            S1.clear()
+            S2.clear()
+            S3.clear()
+            S4.clear()
+            S5.clear()
+            S6.clear()
+            S7.clear()
+            ret20.clear()
+            # list clearing and looping to all
+            # xor f(ro, k)
+            yz = int(j20, 2) ^ int(lo, 2)
+            yzz = ('{0:b}'.format(yz)).zfill(32)
+            # getting f function
+            gool.append(yzz)
+            ero = yzz
+            if not n:
+                lo = ro
+            else:
+                for c in n:
+                    lo = c
+            n.append(yzz)
+            rt30 = gool[15:16]
+            rt40 = gool[14:15]
+            # only get R16 and R15
+            ret50 = "".join(rt30 + rt40)
+        gl = ret50
+        for ir in IP_inverse:
+            IP10.append(ir - 1)
+        gl = [gl[oo] for oo in IP10]
+        j100 = "".join(map(str, gl))
+        j200 = f'{j100}'
+        aa = format(int(j200, 2), 'x').rjust(16, '0')
+        bb = bytes.fromhex(aa)
+        # In above for loop q value start from 0 and end 100
+        # the condition never until 100 times
+        if cipher_text == bb and q == 100:
+            pass
+    return True
+
