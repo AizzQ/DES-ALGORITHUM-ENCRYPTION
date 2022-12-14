@@ -2,6 +2,6 @@
 # binary2bytes
 # bin_xor
 # create_DES_subkeys
-# code function f
+# core function f
 # encrypt_DES
 # are_random_tests_all_passes
